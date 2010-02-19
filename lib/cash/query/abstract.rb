@@ -82,7 +82,7 @@ module Cash
 
       def safe_options_for_cache?(options)
         return false unless options.kind_of?(Hash)
-        options.except(:conditions, :readonly, :limit, :offset, :order).values.compact.empty? && !options[:readonly]
+        options.except(:include, :conditions, :readonly, :limit, :offset, :order).values.compact.empty? && !options[:readonly]
       end
 
       def attribute_value_pairs_for_conditions(conditions)

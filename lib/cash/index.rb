@@ -60,7 +60,7 @@ module Cash
       end
 
       def buffer
-        options[:buffer]
+        options.has_key?(:buffer) ? options[:buffer] : 0
       end
 
       def window
