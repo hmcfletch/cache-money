@@ -70,6 +70,13 @@ module Cash
       end
 
       def cache_keys(attribute_value_pairs)
+        # if we are looking up a set of ids hash the array,
+        # so we don't hit the 255 character limit of memcache keys
+        attribute_value_pairs.each_with_index do |pair,i|
+          if pair[0] == 'id' && pair[1].is_a?(Array)
+            attribute_value_pairs[i][1] = Digest::MD5.hexdigest(pair[1].sort.join('/'))
+          end
+        end
         attribute_value_pairs.flatten.join('/')
       end
 
@@ -92,17 +99,31 @@ module Cash
       end
 
       AND = /\s+AND\s+/i
-      TABLE_AND_COLUMN = /(?:(?:`|")?(\w+)(?:`|")?\.)?(?:`|")?(\w+)(?:`|")?/              # Matches: `users`.id, `users`.`id`, users.id, id
-      VALUE = /'?(\d+|\?|(?:(?:[^']|'')*))'?/                     # Matches: 123, ?, '123', '12''3'
+      TABLE_AND_COLUMN = /(?:(?:`|")?(\w+)(?:`|")?\.)?(?:`|")?(\w+)(?:`|")?/ # Matches: `users`.id, `users`.`id`, users.id, id
+      VALUE = /\(?'?(\d+|\?|(?:(?:[^']|'')*))'?\)?/                     # Matches: 123, ?, '123', '12''3'
       KEY_EQ_VALUE = /^\(?#{TABLE_AND_COLUMN}\s+=\s+#{VALUE}\)?$/ # Matches: KEY = VALUE, (KEY = VALUE)
+      KEY_IN_VALUE = /^\(?#{TABLE_AND_COLUMN}\s+IN\s+\(\s*#{VALUE}\s*\)\)?$/ # Matches: KEY IN (VALUE)
       ORDER = /^#{TABLE_AND_COLUMN}\s*(ASC|DESC)?$/i              # Matches: COLUMN ASC, COLUMN DESC, COLUMN
+      BIND_VAR = /\(?\s*\?\s*\)?/ # Matches: ?, ( ? )
+      ARRAY_STR = /(\d+,\s*)+/
 
       def parse_indices_from_condition(conditions = '', *values)
         values = values.dup
         conditions.split(AND).inject([]) do |indices, condition|
           matched, table_name, column_name, sql_value = *(KEY_EQ_VALUE.match(condition))
+          matched, table_name, column_name, sql_value = *(KEY_IN_VALUE.match(condition)) unless matched
           if matched
-            value = sql_value == '?' ? values.shift : columns_hash[column_name].type_cast(sql_value)
+            value = nil
+            if sql_value =~ BIND_VAR
+              value = values.shift 
+            else
+              column = columns_hash[column_name]
+              if sql_value =~ ARRAY_STR
+                value = sql_value.split(/,\s*/).collect { |val|  column.type_cast(val) }
+              else
+                value = column.type_cast(sql_value)
+              end
+            end
             indices << [column_name, value]
           else
             return nil

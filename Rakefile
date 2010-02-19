@@ -1,33 +1,23 @@
-RAILS_ROOT = "#{File.dirname(__FILE__)}"
-
-require 'rubygems'
-require 'spec/rake/spectask'
-
-require 'config/environment'
-
 require 'rake'
 require 'rake/testtask'
 require 'rake/rdoctask'
 
-require 'tasks/rails'
+desc 'Default: run unit tests.'
+task :default => :test
 
-Spec::Rake::SpecTask.new do |t|
-  t.spec_files = FileList['spec/**/*_spec.rb']
-  t.spec_opts = ['--format', 'profile', '--color']
+desc 'Test the cache_money plugin.'
+Rake::TestTask.new(:test) do |t|
+  t.libs << 'lib'
+  t.libs << 'test'
+  t.pattern = 'test/**/*_test.rb'
+  t.verbose = true
 end
 
-Spec::Rake::SpecTask.new(:coverage) do |t|
-  t.spec_files = FileList['spec/**/*_spec.rb']
-  t.rcov = true
-  t.rcov_opts = ['-x', 'spec,gems']
-end
-
-desc "Default task is to run specs"
-task :default => :spec
-
-namespace :britt do
-  desc 'Removes trailing whitespace'
-  task :space do
-    sh %{find . -name '*.rb' -exec sed -i '' 's/ *$//g' {} \\;}
-  end
+desc 'Generate documentation for the cache_money plugin.'
+Rake::RDocTask.new(:rdoc) do |rdoc|
+  rdoc.rdoc_dir = 'rdoc'
+  rdoc.title    = 'Cache-money'
+  rdoc.options << '--line-numbers' << '--inline-source'
+  rdoc.rdoc_files.include('README')
+  rdoc.rdoc_files.include('lib/**/*.rb')
 end

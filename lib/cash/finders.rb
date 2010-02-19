@@ -21,7 +21,12 @@ module Cash
 
       # User.find(:first, ...), User.find_by_foo(...), User.find(:all, ...), User.find_all_by_foo(...)
       def find_every_with_cache(options)
-        Query::Select.perform(self, options, scope(:find))
+        records = Query::Select.perform(self, options, scope(:find))
+        include_associations = merge_includes(scope(:find, :include), options[:include])
+        if include_associations.any?
+          preload_associations(records, include_associations)
+        end
+        records
       end
 
       # User.find(1), User.find(1, 2, 3), User.find([1, 2, 3]), User.find([])
